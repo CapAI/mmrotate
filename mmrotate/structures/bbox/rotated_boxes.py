@@ -9,12 +9,12 @@ from mmdet.structures.bbox import BaseBoxes, register_box
 from mmdet.structures.mask import BitmapMasks, PolygonMasks
 from torch import BoolTensor, Tensor
 
-T = TypeVar('T')
+T = TypeVar("T")
 DeviceType = Union[str, torch.device]
 MaskType = Union[BitmapMasks, PolygonMasks]
 
 
-@register_box('rbox')
+@register_box("rbox")
 class RotatedBoxes(BaseBoxes):
     """The rotated box class used in MMRotate by default.
 
@@ -36,10 +36,9 @@ class RotatedBoxes(BaseBoxes):
 
     box_dim = 5
 
-    def regularize_boxes(self,
-                         pattern: Optional[str] = None,
-                         width_longer: bool = True,
-                         start_angle: float = -90) -> Tensor:
+    def regularize_boxes(
+        self, pattern: Optional[str] = None, width_longer: bool = True, start_angle: float = -90
+    ) -> Tensor:
         """Regularize rotated boxes.
 
         Due to the angle periodicity, one rotated box can be represented in
@@ -87,15 +86,14 @@ class RotatedBoxes(BaseBoxes):
         """
         boxes = self.tensor
         if pattern is not None:
-            if pattern == 'oc':
+            if pattern == "oc":
                 width_longer, start_angle = False, -90
-            elif pattern == 'le90':
+            elif pattern == "le90":
                 width_longer, start_angle = True, -90
-            elif pattern == 'le135':
+            elif pattern == "le135":
                 width_longer, start_angle = True, -45
             else:
-                raise ValueError("pattern only can be 'oc', 'le90', and"
-                                 f"'le135', but get {pattern}.")
+                raise ValueError("pattern only can be 'oc', 'le90', and" f"'le135', but get {pattern}.")
         start_angle = start_angle / 180 * np.pi
 
         x, y, w, h, t = boxes.unbind(dim=-1)
@@ -107,7 +105,7 @@ class RotatedBoxes(BaseBoxes):
             t = ((t - start_angle) % np.pi) + start_angle
         else:
             # swap edge and angle if angle > pi/2
-            t = ((t - start_angle) % np.pi)
+            t = (t - start_angle) % np.pi
             w_ = torch.where(t < np.pi / 2, w, h)
             h_ = torch.where(t < np.pi / 2, h, w)
             t = torch.where(t < np.pi / 2, t, t - np.pi / 2) + start_angle
@@ -146,9 +144,7 @@ class RotatedBoxes(BaseBoxes):
         """
         return self.tensor[..., 3]
 
-    def flip_(self,
-              img_shape: Tuple[int, int],
-              direction: str = 'horizontal') -> None:
+    def flip_(self, img_shape: Tuple[int, int], direction: str = "horizontal") -> None:
         """Flip boxes horizontally or vertically in-place.
 
         Args:
@@ -156,12 +152,12 @@ class RotatedBoxes(BaseBoxes):
             direction (str): Flip direction, options are "horizontal",
                 "vertical" and "diagonal". Defaults to "horizontal"
         """
-        assert direction in ['horizontal', 'vertical', 'diagonal']
+        assert direction in ["horizontal", "vertical", "diagonal"]
         flipped = self.tensor
-        if direction == 'horizontal':
+        if direction == "horizontal":
             flipped[..., 0] = img_shape[1] - flipped[..., 0]
             flipped[..., 4] = -flipped[..., 4]
-        elif direction == 'vertical':
+        elif direction == "vertical":
             flipped[..., 1] = img_shape[0] - flipped[..., 1]
             flipped[..., 4] = -flipped[..., 4]
         else:
@@ -189,7 +185,8 @@ class RotatedBoxes(BaseBoxes):
         Args:
             img_shape (Tuple[int, int]): A tuple of image height and width.
         """
-        warnings.warn('The `clip` function does nothing in `RotatedBoxes`.')
+        # warnings.warn("The `clip` function does nothing in `RotatedBoxes`.")
+        pass
 
     def rotate_(self, center: Tuple[float, float], angle: float) -> None:
         """Rotate all boxes in-place.
@@ -200,13 +197,11 @@ class RotatedBoxes(BaseBoxes):
                 values mean clockwise rotation.
         """
         boxes = self.tensor
-        rotation_matrix = boxes.new_tensor(
-            cv2.getRotationMatrix2D(center, -angle, 1))
+        rotation_matrix = boxes.new_tensor(cv2.getRotationMatrix2D(center, -angle, 1))
 
         centers, wh, t = torch.split(boxes, [2, 2, 1], dim=-1)
         t = t + angle / 180 * np.pi
-        centers = torch.cat(
-            [centers, centers.new_ones(*centers.shape[:-1], 1)], dim=-1)
+        centers = torch.cat([centers, centers.new_ones(*centers.shape[:-1], 1)], dim=-1)
         centers_T = torch.transpose(centers, -1, -2)
         centers_T = torch.matmul(rotation_matrix, centers_T)
         centers = torch.transpose(centers_T, -1, -2)
@@ -223,8 +218,7 @@ class RotatedBoxes(BaseBoxes):
         if isinstance(homography_matrix, np.ndarray):
             homography_matrix = boxes.new_tensor(homography_matrix)
         corners = self.rbox2corner(boxes)
-        corners = torch.cat(
-            [corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1)
+        corners = torch.cat([corners, corners.new_ones(*corners.shape[:-1], 1)], dim=-1)
         corners_T = torch.transpose(corners, -1, -2)
         corners_T = torch.matmul(homography_matrix, corners_T)
         corners = torch.transpose(corners_T, -1, -2)
@@ -296,8 +290,8 @@ class RotatedBoxes(BaseBoxes):
         # rescale centers
         ctrs = ctrs * ctrs.new_tensor([scale_x, scale_y])
         # rescale width and height
-        w = w * torch.sqrt((scale_x * cos_value)**2 + (scale_y * sin_value)**2)
-        h = h * torch.sqrt((scale_x * sin_value)**2 + (scale_y * cos_value)**2)
+        w = w * torch.sqrt((scale_x * cos_value) ** 2 + (scale_y * sin_value) ** 2)
+        h = h * torch.sqrt((scale_x * sin_value) ** 2 + (scale_y * cos_value) ** 2)
         # recalculate theta
         t = torch.atan2(scale_x * sin_value, scale_y * cos_value)
         self.tensor = torch.cat([ctrs, w, h, t], dim=-1)
@@ -322,10 +316,7 @@ class RotatedBoxes(BaseBoxes):
         wh = wh * scale_factor
         self.tensor = torch.cat([ctrs, wh, t], dim=-1)
 
-    def is_inside(self,
-                  img_shape: Tuple[int, int],
-                  all_inside: bool = False,
-                  allowed_border: int = 0) -> BoolTensor:
+    def is_inside(self, img_shape: Tuple[int, int], all_inside: bool = False, allowed_border: int = 0) -> BoolTensor:
         """Find boxes inside the image.
 
         Args:
@@ -343,15 +334,14 @@ class RotatedBoxes(BaseBoxes):
         """
         img_h, img_w = img_shape
         boxes = self.tensor
-        return (boxes[..., 0] <= img_w + allowed_border) & \
-               (boxes[..., 1] <= img_h + allowed_border) & \
-               (boxes[..., 0] >= -allowed_border) & \
-               (boxes[..., 1] >= -allowed_border)
+        return (
+            (boxes[..., 0] <= img_w + allowed_border)
+            & (boxes[..., 1] <= img_h + allowed_border)
+            & (boxes[..., 0] >= -allowed_border)
+            & (boxes[..., 1] >= -allowed_border)
+        )
 
-    def find_inside_points(self,
-                           points: Tensor,
-                           is_aligned: bool = False,
-                           eps: float = 0.01) -> BoolTensor:
+    def find_inside_points(self, points: Tensor, is_aligned: bool = False, eps: float = 0.01) -> BoolTensor:
         """Find inside box points. Boxes dimension must be 2.
         Args:
             points (Tensor): Points coordinates. Has shape of (m, 2).
@@ -368,7 +358,7 @@ class RotatedBoxes(BaseBoxes):
             m should be equal to n and the index has shape of (m, ).
         """
         boxes = self.tensor
-        assert boxes.dim() == 2, 'boxes dimension must be 2.'
+        assert boxes.dim() == 2, "boxes dimension must be 2."
 
         if not is_aligned:
             boxes = boxes[None, :, :]
@@ -378,23 +368,24 @@ class RotatedBoxes(BaseBoxes):
 
         ctrs, wh, t = torch.split(boxes, [2, 2, 1], dim=-1)
         cos_value, sin_value = torch.cos(t), torch.sin(t)
-        matrix = torch.cat([cos_value, sin_value, -sin_value, cos_value],
-                           dim=-1).reshape(*boxes.shape[:-1], 2, 2)
+        matrix = torch.cat([cos_value, sin_value, -sin_value, cos_value], dim=-1).reshape(*boxes.shape[:-1], 2, 2)
 
         offset = points - ctrs
         offset = torch.matmul(matrix, offset[..., None])
         offset = offset.squeeze(-1)
         offset_x, offset_y = offset[..., 0], offset[..., 1]
         w, h = wh[..., 0], wh[..., 1]
-        return (offset_x <= w / 2 - eps) & (offset_x >= - w / 2 + eps) & \
-            (offset_y <= h / 2 - eps) & (offset_y >= - h / 2 + eps)
+        return (
+            (offset_x <= w / 2 - eps)
+            & (offset_x >= -w / 2 + eps)
+            & (offset_y <= h / 2 - eps)
+            & (offset_y >= -h / 2 + eps)
+        )
 
     @staticmethod
-    def overlaps(boxes1: BaseBoxes,
-                 boxes2: BaseBoxes,
-                 mode: str = 'iou',
-                 is_aligned: bool = False,
-                 eps: float = 1e-6) -> Tensor:
+    def overlaps(
+        boxes1: BaseBoxes, boxes2: BaseBoxes, mode: str = "iou", is_aligned: bool = False, eps: float = 1e-6
+    ) -> Tensor:
         """Calculate overlap between two set of boxes with their types
         converted to ``RotatedBoxes``.
 
@@ -414,17 +405,13 @@ class RotatedBoxes(BaseBoxes):
             Tensor: shape (m, n) if ``is_aligned`` is False else shape (m,)
         """
         from mmrotate.structures.bbox import rbbox_overlaps
-        boxes1 = boxes1.convert_to('rbox')
-        boxes2 = boxes2.convert_to('rbox')
-        return rbbox_overlaps(
-            boxes1.tensor,
-            boxes2.tensor,
-            mode=mode,
-            is_aligned=is_aligned,
-            eps=eps)
+
+        boxes1 = boxes1.convert_to("rbox")
+        boxes2 = boxes2.convert_to("rbox")
+        return rbbox_overlaps(boxes1.tensor, boxes2.tensor, mode=mode, is_aligned=is_aligned, eps=eps)
 
     @staticmethod
-    def from_instance_masks(masks: MaskType) -> 'RotatedBoxes':
+    def from_instance_masks(masks: MaskType) -> "RotatedBoxes":
         """Create boxes from instance masks.
 
         Args:
@@ -449,13 +436,10 @@ class RotatedBoxes(BaseBoxes):
             for idx, poly_per_obj in enumerate(masks.masks):
                 pts_per_obj = []
                 for p in poly_per_obj:
-                    pts_per_obj.append(
-                        np.array(p, dtype=np.float32).reshape(-1, 2))
+                    pts_per_obj.append(np.array(p, dtype=np.float32).reshape(-1, 2))
                 pts_per_obj = np.concatenate(pts_per_obj, axis=0)
                 (x, y), (w, h), angle = cv2.minAreaRect(pts_per_obj)
                 boxes.append([x, y, w, h, angle / 180 * np.pi])
         else:
-            raise TypeError(
-                '`masks` must be `BitmapMasks`  or `PolygonMasks`, '
-                f'but got {type(masks)}.')
+            raise TypeError("`masks` must be `BitmapMasks`  or `PolygonMasks`, " f"but got {type(masks)}.")
         return RotatedBoxes(boxes)
