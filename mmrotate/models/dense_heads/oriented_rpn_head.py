@@ -69,7 +69,7 @@ class OrientedRPNHead(RPNHead):
             with torch.cuda.amp.autocast(enabled=False):
                 scores = results.scores.float()
                 det_bboxes, keep_idxs = batched_nms(hbboxes, scores, results.level_ids, cfg.nms)
-            results = results[keep_idxs]
+            results = results[keep_idxs.to(results.scores.device)]
             # some nms would reweight the score, such as softnms
             results.scores = det_bboxes[:, -1]
             results = results[: cfg.max_per_img]
