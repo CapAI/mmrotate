@@ -24,23 +24,44 @@ class DOTADataset(BaseDataset):
     """
 
     METAINFO = {
-        'classes':
-        ('plane', 'baseball-diamond', 'bridge', 'ground-track-field',
-         'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
-         'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
-         'harbor', 'swimming-pool', 'helicopter'),
+        "classes": (
+            "plane",
+            "baseball-diamond",
+            "bridge",
+            "ground-track-field",
+            "small-vehicle",
+            "large-vehicle",
+            "ship",
+            "tennis-court",
+            "basketball-court",
+            "storage-tank",
+            "soccer-ball-field",
+            "roundabout",
+            "harbor",
+            "swimming-pool",
+            "helicopter",
+        ),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
-                    (138, 43, 226), (255, 128, 0), (255, 0, 255),
-                    (0, 255, 255), (255, 193, 193), (0, 51, 153),
-                    (255, 250, 205), (0, 139, 139), (255, 255, 0),
-                    (147, 116, 116), (0, 0, 255)]
+        "palette": [
+            (165, 42, 42),
+            (189, 183, 107),
+            (0, 255, 0),
+            (255, 0, 0),
+            (138, 43, 226),
+            (255, 128, 0),
+            (255, 0, 255),
+            (0, 255, 255),
+            (255, 193, 193),
+            (0, 51, 153),
+            (255, 250, 205),
+            (0, 139, 139),
+            (255, 255, 0),
+            (147, 116, 116),
+            (0, 0, 255),
+        ],
     }
 
-    def __init__(self,
-                 diff_thr: int = 100,
-                 img_suffix: str = 'png',
-                 **kwargs) -> None:
+    def __init__(self, diff_thr: int = 100, img_suffix: str = "png", **kwargs) -> None:
         self.diff_thr = diff_thr
         self.img_suffix = img_suffix
         super().__init__(**kwargs)
@@ -50,39 +71,34 @@ class DOTADataset(BaseDataset):
         Returns:
             List[dict]: A list of annotation.
         """  # noqa: E501
-        cls_map = {c: i
-                   for i, c in enumerate(self.metainfo['classes'])
-                   }  # in mmdet v2.0 label is 0-based
+        cls_map = {c: i for i, c in enumerate(self.metainfo["classes"])}  # in mmdet v2.0 label is 0-based
         data_list = []
-        if self.ann_file == '':
-            img_files = glob.glob(
-                osp.join(self.data_prefix['img_path'], f'*.{self.img_suffix}'))
+        if self.ann_file == "":
+            img_files = glob.glob(osp.join(self.data_prefix["img_path"], f"*.{self.img_suffix}"))
             for img_path in img_files:
                 data_info = {}
-                data_info['img_path'] = img_path
+                data_info["img_path"] = img_path
                 img_name = osp.split(img_path)[1]
-                data_info['file_name'] = img_name
+                data_info["file_name"] = img_name
                 img_id = img_name[:-4]
-                data_info['img_id'] = img_id
+                data_info["img_id"] = img_id
 
                 instance = dict(bbox=[], bbox_label=[], ignore_flag=0)
-                data_info['instances'] = [instance]
+                data_info["instances"] = [instance]
                 data_list.append(data_info)
 
             return data_list
         else:
-            txt_files = glob.glob(osp.join(self.ann_file, '*.txt'))
+            txt_files = glob.glob(osp.join(self.ann_file, "*.txt"))
             if len(txt_files) == 0:
-                raise ValueError('There is no txt file in '
-                                 f'{self.ann_file}')
+                raise ValueError("There is no txt file in " f"{self.ann_file}")
             for txt_file in txt_files:
                 data_info = {}
                 img_id = osp.split(txt_file)[1][:-4]
-                data_info['img_id'] = img_id
-                img_name = img_id + f'.{self.img_suffix}'
-                data_info['file_name'] = img_name
-                data_info['img_path'] = osp.join(self.data_prefix['img_path'],
-                                                 img_name)
+                data_info["img_id"] = img_id
+                img_name = img_id + f".{self.img_suffix}"
+                data_info["file_name"] = img_name
+                data_info["img_path"] = osp.join(self.data_prefix["img_path"], img_name)
 
                 instances = []
                 with open(txt_file) as f:
@@ -90,16 +106,19 @@ class DOTADataset(BaseDataset):
                     for si in s:
                         instance = {}
                         bbox_info = si.split()
-                        instance['bbox'] = [float(i) for i in bbox_info[:8]]
+                        instance["bbox"] = [float(i) for i in bbox_info[:8]]
                         cls_name = bbox_info[8]
-                        instance['bbox_label'] = cls_map[cls_name]
+                        instance["bbox_label"] = cls_map[cls_name]
                         difficulty = int(bbox_info[9])
                         if difficulty > self.diff_thr:
-                            instance['ignore_flag'] = 1
+                            instance["ignore_flag"] = 1
                         else:
-                            instance['ignore_flag'] = 0
+                            instance["ignore_flag"] = 0
+                        if len(bbox_info) >= 11:
+                            instance["obj_id"] = bbox_info[10]
+
                         instances.append(instance)
-                data_info['instances'] = instances
+                data_info["instances"] = instances
                 data_list.append(data_info)
 
             return data_list
@@ -113,12 +132,11 @@ class DOTADataset(BaseDataset):
         if self.test_mode:
             return self.data_list
 
-        filter_empty_gt = self.filter_cfg.get('filter_empty_gt', False) \
-            if self.filter_cfg is not None else False
+        filter_empty_gt = self.filter_cfg.get("filter_empty_gt", False) if self.filter_cfg is not None else False
 
         valid_data_infos = []
         for i, data_info in enumerate(self.data_list):
-            if filter_empty_gt and len(data_info['instances']) == 0:
+            if filter_empty_gt and len(data_info["instances"]) == 0:
                 continue
             valid_data_infos.append(data_info)
 
@@ -133,8 +151,8 @@ class DOTADataset(BaseDataset):
             List[int]: All categories in the image of specified index.
         """
 
-        instances = self.get_data_info(idx)['instances']
-        return [instance['bbox_label'] for instance in instances]
+        instances = self.get_data_info(idx)["instances"]
+        return [instance["bbox_label"] for instance in instances]
 
 
 @DATASETS.register_module()
@@ -147,17 +165,43 @@ class DOTAv15Dataset(DOTADataset):
     """
 
     METAINFO = {
-        'classes':
-        ('plane', 'baseball-diamond', 'bridge', 'ground-track-field',
-         'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
-         'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
-         'harbor', 'swimming-pool', 'helicopter', 'container-crane'),
+        "classes": (
+            "plane",
+            "baseball-diamond",
+            "bridge",
+            "ground-track-field",
+            "small-vehicle",
+            "large-vehicle",
+            "ship",
+            "tennis-court",
+            "basketball-court",
+            "storage-tank",
+            "soccer-ball-field",
+            "roundabout",
+            "harbor",
+            "swimming-pool",
+            "helicopter",
+            "container-crane",
+        ),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
-                    (138, 43, 226), (255, 128, 0), (255, 0, 255),
-                    (0, 255, 255), (255, 193, 193), (0, 51, 153),
-                    (255, 250, 205), (0, 139, 139), (255, 255, 0),
-                    (147, 116, 116), (0, 0, 255), (220, 20, 60)]
+        "palette": [
+            (165, 42, 42),
+            (189, 183, 107),
+            (0, 255, 0),
+            (255, 0, 0),
+            (138, 43, 226),
+            (255, 128, 0),
+            (255, 0, 255),
+            (0, 255, 255),
+            (255, 193, 193),
+            (0, 51, 153),
+            (255, 250, 205),
+            (0, 139, 139),
+            (255, 255, 0),
+            (147, 116, 116),
+            (0, 0, 255),
+            (220, 20, 60),
+        ],
     }
 
 
@@ -171,17 +215,45 @@ class DOTAv2Dataset(DOTADataset):
     """
 
     METAINFO = {
-        'classes':
-        ('plane', 'baseball-diamond', 'bridge', 'ground-track-field',
-         'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
-         'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
-         'harbor', 'swimming-pool', 'helicopter', 'container-crane', 'airport',
-         'helipad'),
+        "classes": (
+            "plane",
+            "baseball-diamond",
+            "bridge",
+            "ground-track-field",
+            "small-vehicle",
+            "large-vehicle",
+            "ship",
+            "tennis-court",
+            "basketball-court",
+            "storage-tank",
+            "soccer-ball-field",
+            "roundabout",
+            "harbor",
+            "swimming-pool",
+            "helicopter",
+            "container-crane",
+            "airport",
+            "helipad",
+        ),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
-                    (138, 43, 226), (255, 128, 0), (255, 0, 255),
-                    (0, 255, 255), (255, 193, 193), (0, 51, 153),
-                    (255, 250, 205), (0, 139, 139), (255, 255, 0),
-                    (147, 116, 116), (0, 0, 255), (220, 20, 60), (119, 11, 32),
-                    (0, 0, 142)]
+        "palette": [
+            (165, 42, 42),
+            (189, 183, 107),
+            (0, 255, 0),
+            (255, 0, 0),
+            (138, 43, 226),
+            (255, 128, 0),
+            (255, 0, 255),
+            (0, 255, 255),
+            (255, 193, 193),
+            (0, 51, 153),
+            (255, 250, 205),
+            (0, 139, 139),
+            (255, 255, 0),
+            (147, 116, 116),
+            (0, 0, 255),
+            (220, 20, 60),
+            (119, 11, 32),
+            (0, 0, 142),
+        ],
     }

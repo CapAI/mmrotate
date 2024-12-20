@@ -1,11 +1,11 @@
-# Copyright (c) OpenMMLab. All rights reserved.
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
 from mmdet.structures.mask import BitmapMasks, PolygonMasks, bitmap_to_polygon
 from mmdet.visualization import DetLocalVisualizer, jitter_color
 from mmdet.visualization.palette import _get_adaptive_scales
+from mmdet.structures import DetDataSample
 from mmengine.structures import InstanceData
 from torch import Tensor
 
@@ -40,7 +40,7 @@ class RotLocalVisualizer(DetLocalVisualizer):
             Defaults to 0.8.
     """
 
-    def _draw_instances(self, image: np.ndarray, instances: ['InstanceData'],
+    def _draw_instances(self, image: np.ndarray, instances: List[InstanceData],
                         classes: Optional[List[str]],
                         palette: Optional[List[tuple]]) -> np.ndarray:
         """Draw instances of GT or prediction.
@@ -138,3 +138,29 @@ class RotLocalVisualizer(DetLocalVisualizer):
             self.draw_polygons(polygons, edge_colors='w', alpha=self.alpha)
             self.draw_binary_masks(masks, colors=colors, alphas=self.alpha)
         return self.get_image()
+
+    def add_datasample(
+            self,
+            name: str,
+            image: np.ndarray,
+            data_sample: Optional[DetDataSample] = None,
+            draw_gt: bool = True,
+            draw_pred: bool = True,
+            show: bool = False,
+            wait_time: float = 0,
+            # TODO: Supported in mmengine's Viusalizer.
+            out_file: Optional[str] = None,
+            pred_score_thr: float = 0.3,
+            step: int = 0) -> None:
+
+            scale_factor: Tuple[float, float] = data_sample.metainfo.get('scale_factor') if data_sample is not None else None # type: ignore
+            if draw_gt and data_sample is not None and 'gt_instances' in data_sample and len(data_sample.gt_instances) > 0:
+                 # rescale
+                data_sample.gt_instances.bboxes[:, 0:4:2] /= scale_factor[0] # type: ignore
+                data_sample.gt_instances.bboxes[:, 1:4:2] /= scale_factor[1] # type: ignore
+            if draw_pred and data_sample is not None and 'pred_instances' in data_sample and len(data_sample.pred_instances) > 0:
+                # rescale
+                data_sample.pred_instances.bboxes[:, 0:4:2] /= scale_factor[0] # type: ignore
+                data_sample.pred_instances.bboxes[:, 1:4:2] /= scale_factor[1] # type: ignore
+
+            super().add_datasample(name, image, data_sample, draw_gt, draw_pred, show, wait_time, out_file, pred_score_thr, step)
